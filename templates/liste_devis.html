@@ -29,13 +29,14 @@
   <div class="table-wrap">
     <table id="devisTable">
       <thead><tr>
-        <th>Numéro</th><th>Client</th><th>Événement</th><th>Lieu</th><th>Total</th><th>Reste</th><th>Statut</th><th>Actions</th>
+        <th>Numéro</th><th>Client</th><th>Responsable</th><th>Événement</th><th>Total</th><th>Reste</th><th>Statut</th><th>Actions</th>
       </tr></thead>
       <tbody>
         {% for d in devis %}
         <tr class="devis-row">
           <td><code style="color:var(--gold);font-size:0.82rem">{{ d.numero }}</code></td>
           <td><strong>{{ d.client.nom }}</strong></td>
+          <td>{% if d.commercial %}<span style="font-size:0.8rem;color:var(--gold)">👤 {{ d.commercial }}</span>{% else %}<span style="color:var(--text-muted)">–</span>{% endif %}</td>
           <td style="color:var(--text-muted);white-space:nowrap">
             {% if d.date_evenement %}
               {{ d.date_evenement.strftime('%d/%m/%Y') }}

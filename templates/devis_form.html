@@ -27,6 +27,15 @@
           </div>
         </div>
         <div class="form-group">
+          <label class="form-label">Responsable du dossier</label>
+          <select class="form-control" id="commercial">
+            <option value="">— Sélectionner —</option>
+            <option value="Tiago" {% if devis and devis.commercial == 'Tiago' %}selected{% endif %}>👤 Tiago</option>
+            <option value="Associé" {% if devis and devis.commercial == 'Associé' %}selected{% endif %}>👤 Associé</option>
+            <option value="Les deux" {% if devis and devis.commercial == 'Les deux' %}selected{% endif %}>👥 Les deux</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label">Type d'événement</label>
           <select class="form-control" id="type_evenement">
             <option value="">Sélectionner...</option>
@@ -232,6 +241,7 @@ function sauvegarder() {
     heure_debut: document.getElementById('heure_debut').value,
     heure_fin: document.getElementById('heure_fin').value,
     lieu: document.getElementById('lieu').value,
+    commercial: document.getElementById('commercial').value,
     lignes: lignes,
     remise: document.getElementById('remise').value,
     acompte: document.getElementById('acompte').value,

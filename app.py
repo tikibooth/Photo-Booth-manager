@@ -37,6 +37,7 @@ class Devis(db.Model):
     lignes = db.Column(db.Text, default='[]')  # JSON
     remise = db.Column(db.Float, default=0)
     acompte = db.Column(db.Float, default=0)
+    commercial = db.Column(db.String(100), default="")
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -180,6 +181,7 @@ def nouveau_devis():
             lignes=json.dumps(d.get('lignes', [])),
             remise=float(d.get('remise', 0)),
             acompte=float(d.get('acompte', 0)),
+            commercial=d.get('commercial', ''),
             notes=d.get('notes', '')
         )
         db.session.add(devis)
@@ -207,6 +209,7 @@ def modifier_devis(id):
         devis.lignes = json.dumps(d.get('lignes', []))
         devis.remise = float(d.get('remise', 0))
         devis.acompte = float(d.get('acompte', 0))
+        devis.commercial = d.get('commercial', '')
         devis.notes = d.get('notes', '')
         devis.updated_at = datetime.utcnow()
         db.session.commit()

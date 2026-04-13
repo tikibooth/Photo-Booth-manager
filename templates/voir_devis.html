@@ -28,7 +28,13 @@
         </div>
         <div>
           <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Événement</div>
-          {% if devis.type_evenement %}<div style="font-weight:600">{{ devis.type_evenement }}</div>{% endif %}
+          {% if devis.commercial %}
+        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:20px;padding:3px 10px;margin-bottom:6px">
+          <i class="fas fa-user" style="color:var(--gold);font-size:0.75rem"></i>
+          <span style="font-size:0.8rem;color:var(--gold);font-weight:600">{{ devis.commercial }}</span>
+        </div>
+        {% endif %}
+        {% if devis.type_evenement %}<div style="font-weight:600">{{ devis.type_evenement }}</div>{% endif %}
           {% if devis.date_evenement %}
           <div style="color:var(--text-muted);font-size:0.875rem"><i class="fas fa-calendar" style="width:14px"></i> {{ devis.date_evenement.strftime('%d/%m/%Y') }}
           {% if devis.heure_debut %} — {{ devis.heure_debut }}{% if devis.heure_fin %} à {{ devis.heure_fin }}{% endif %}{% endif %}</div>
