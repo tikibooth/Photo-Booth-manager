@@ -64,3 +64,4 @@ le bouton PDF affiche le document dans le navigateur que vous pouvez imprimer.
 
 Les données sont stockées localement dans `instance/photobooth.db` (SQLite).
 Pensez à sauvegarder ce fichier régulièrement !
+# Photo-Booth-manager
