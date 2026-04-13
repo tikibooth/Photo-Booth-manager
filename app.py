@@ -67,6 +67,9 @@ class Devis(db.Model):
 @app.route('/')
 def index():
     today = date.today()
+    tous_devis = Devis.query.filter(Devis.statut.in_(['accepte', 'facture', 'paye'])).all()
+    ca_total = sum(d.total for d in tous_devis)
+    ca_paye = sum(d.total for d in Devis.query.filter_by(statut='paye').all())
     stats = {
         'total_clients': Client.query.count(),
         'devis_en_cours': Devis.query.filter_by(statut='devis').count(),
@@ -75,16 +78,9 @@ def index():
             Devis.date_evenement >= date(today.year, today.month, 1),
             Devis.statut.in_(['accepte', 'facture', 'paye'])
         ).count(),
-        'ca_total': db.session.query(db.func.sum(
-            db.cast(db.func.json_extract(Devis.lignes, '$[*].prix'), db.Float)
-        )).scalar() or 0,
+        'ca_total': ca_total,
+        'ca_paye': ca_paye,
     }
-    # Calcul CA réel
-    tous_devis = Devis.query.filter(Devis.statut.in_(['accepte', 'facture', 'paye'])).all()
-    ca_total = sum(d.total for d in tous_devis)
-    ca_paye = sum(d.total for d in Devis.query.filter_by(statut='paye').all())
-    stats['ca_total'] = ca_total
-    stats['ca_paye'] = ca_paye
 
     prochains = Devis.query.filter(
         Devis.date_evenement >= today,
