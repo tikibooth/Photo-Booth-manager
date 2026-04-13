@@ -167,8 +167,7 @@
 {% endblock %}
 {% block scripts %}
 <script>
-const lignesData = {{ devis.lignes if devis else '[]' }};
-let lignes = JSON.parse(lignesData);
+let lignes = {{ devis.lignes|safe if devis else '[]' }};
 
 function renderLignes() {
   const container = document.getElementById('lignes');
