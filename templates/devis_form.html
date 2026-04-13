@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}{% if devis %}Modifier{% else %}Nouveau{% endif %} devis — PhotoBooth Manager{% endblock %}
+{% block page_title %}{% if devis %}Modifier {{ devis.numero }}{% else %}Nouveau devis{% endif %}{% endblock %}
+{% block topbar_actions %}
+<a href="/devis" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Retour</a>
+{% endblock %}
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start" class="form-main-grid">
+  <!-- Formulaire principal -->
+  <div>
+    <!-- Client & Événement -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-title"><i class="fas fa-user" style="color:var(--gold)"></i> Client & Événement</div>
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Client *</label>
+          <select class="form-control" id="client_id">
+            <option value="">— Sélectionner un client —</option>
+            {% for c in clients %}
+            <option value="{{ c.id }}" {% if devis and devis.client_id == c.id %}selected{% endif %}>{{ c.nom }}</option>
+            {% endfor %}
+          </select>
+          <div style="margin-top:8px">
+            <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('newClientModal').classList.add('open')">
+              <i class="fas fa-plus"></i> Nouveau client
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type d'événement</label>
+          <select class="form-control" id="type_evenement">
+            <option value="">Sélectionner...</option>
+            {% for t in ['Mariage','Anniversaire','Baby Shower','EVJF / EVG','Soirée d\'entreprise','Gala','Fête privée','Autre'] %}
+            <option value="{{ t }}" {% if devis and devis.type_evenement == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date de l'événement</label>
+          <input type="date" class="form-control" id="date_evenement" value="{{ devis.date_evenement.strftime('%Y-%m-%d') if devis and devis.date_evenement else '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Heure début</label>
+          <input type="time" class="form-control" id="heure_debut" value="{{ devis.heure_debut if devis else '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Heure fin</label>
+          <input type="time" class="form-control" id="heure_fin" value="{{ devis.heure_fin if devis else '' }}">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Lieu</label>
+          <input type="text" class="form-control" id="lieu" value="{{ devis.lieu if devis else '' }}" placeholder="Salle des fêtes, Hôtel Sheraton...">
+        </div>
+      </div>
+    </div>
+
+    <!-- Prestations -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-title"><i class="fas fa-camera" style="color:var(--gold)"></i> Prestations</div>
+
+      <!-- Catalogue rapide -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Ajouter rapidement</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          {% for nom, prix in [
+            ('Location PhotoBooth 4h', 35000),
+            ('Location PhotoBooth 6h', 45000),
+            ('Location PhotoBooth 8h', 55000),
+            ('Impression illimitée', 10000),
+            ('Album souvenir', 8000),
+            ('Livraison & installation', 5000),
+            ('Props & accessoires', 3000),
+            ('Animation photo 1h', 12000),
+          ] %}
+          <button type="button" class="btn btn-outline btn-sm" onclick="ajouterLigne('{{ nom }}', {{ prix }})">
+            + {{ nom }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div id="lignes"></div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="ajouterLigne()" style="margin-top:8px">
+        <i class="fas fa-plus"></i> Ajouter une ligne personnalisée
+      </button>
+    </div>
+
+    <!-- Notes -->
+    <div class="card">
+      <div class="section-title"><i class="fas fa-sticky-note" style="color:var(--gold)"></i> Notes</div>
+      <textarea class="form-control" id="notes" rows="4" placeholder="Conditions particulières, demandes spéciales...">{{ devis.notes if devis else '' }}</textarea>
+    </div>
+  </div>
+
+  <!-- Récapitulatif & Actions -->
+  <div style="position:sticky;top:80px">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title"><i class="fas fa-calculator" style="color:var(--gold)"></i> Récapitulatif</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;font-size:0.9rem">
+          <span style="color:var(--text-muted)">Sous-total</span>
+          <span id="sous-total">0 XPF</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <span style="color:var(--text-muted);font-size:0.9rem">Remise (%)</span>
+          <input type="number" class="form-control" id="remise" min="0" max="100" value="{{ devis.remise if devis else 0 }}" style="width:80px;text-align:center" oninput="recalculer()">
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.9rem">
+          <span style="color:var(--text-muted)">Remise montant</span>
+          <span id="montant-remise" style="color:var(--red)">– 0 XPF</span>
+        </div>
+        <hr style="border-color:var(--border)">
+        <div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:700">
+          <span>Total TTC</span>
+          <span id="total" style="color:var(--gold)">0 XPF</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px">
+          <span style="color:var(--text-muted);font-size:0.9rem">Acompte (XPF)</span>
+          <input type="number" class="form-control" id="acompte" min="0" value="{{ devis.acompte if devis else 0 }}" style="width:110px;text-align:center" oninput="recalculer()">
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.9rem">
+          <span style="color:var(--text-muted)">Reste à payer</span>
+          <span id="reste" style="color:var(--amber)">0 XPF</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title"><i class="fas fa-save" style="color:var(--gold)"></i> Enregistrer</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-gold" onclick="sauvegarder()"><i class="fas fa-save"></i> Sauvegarder le devis</button>
+        {% if devis %}
+        <a href="/devis/{{ devis.id }}/pdf" class="btn btn-outline"><i class="fas fa-file-pdf"></i> Générer PDF</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nouveau client rapide -->
+<div class="modal-overlay" id="newClientModal">
+  <div class="modal">
+    <h2><i class="fas fa-user-plus" style="color:var(--gold)"></i> Nouveau client</h2>
+    <div class="form-group">
+      <label class="form-label">Nom *</label>
+      <input type="text" class="form-control" id="nc-nom" placeholder="Nom du client">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Téléphone</label>
+      <input type="tel" class="form-control" id="nc-tel" placeholder="+687...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-control" id="nc-email">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="document.getElementById('newClientModal').classList.remove('open')">Annuler</button>
+      <button class="btn btn-gold" onclick="creerClientRapide()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.ligne-item { display:grid; grid-template-columns:1fr 70px 110px 36px; gap:8px; align-items:center; margin-bottom:8px; }
+@media(max-width:768px){ .form-main-grid{grid-template-columns:1fr!important} .ligne-item{grid-template-columns:1fr 60px 90px 32px} }
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+const lignesData = {{ devis.lignes if devis else '[]' }};
+let lignes = JSON.parse(lignesData);
+
+function renderLignes() {
+  const container = document.getElementById('lignes');
+  container.innerHTML = '';
+  lignes.forEach((l, i) => {
+    const div = document.createElement('div');
+    div.className = 'ligne-item';
+    div.innerHTML = `
+      <input type="text" class="form-control" value="${l.description||''}" placeholder="Description" oninput="lignes[${i}].description=this.value">
+      <input type="number" class="form-control" value="${l.quantite||1}" min="1" style="text-align:center" oninput="lignes[${i}].quantite=+this.value;recalculer()">
+      <input type="number" class="form-control" value="${l.prix||0}" min="0" placeholder="Prix XPF" oninput="lignes[${i}].prix=+this.value;recalculer()">
+      <button type="button" class="btn btn-danger btn-icon btn-sm" onclick="supprimerLigne(${i})"><i class="fas fa-times"></i></button>
+    `;
+    container.appendChild(div);
+  });
+  // Headers
+  if (lignes.length > 0) {
+    const header = document.createElement('div');
+    header.className = 'ligne-item';
+    header.style.marginBottom = '4px';
+    header.innerHTML = `
+      <span style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Description</span>
+      <span style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Qté</span>
+      <span style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Prix unit.</span>
+      <span></span>
+    `;
+    container.insertBefore(header, container.firstChild);
+  }
+  recalculer();
+}
+
+function ajouterLigne(desc='', prix=0) {
+  lignes.push({ description: desc, quantite: 1, prix: prix });
+  renderLignes();
+}
+
+function supprimerLigne(i) {
+  lignes.splice(i, 1);
+  renderLignes();
+}
+
+function recalculer() {
+  const sousTot = lignes.reduce((s,l) => s + (l.quantite||1)*(l.prix||0), 0);
+  const remise = parseFloat(document.getElementById('remise').value) || 0;
+  const montantRemise = sousTot * remise / 100;
+  const total = sousTot - montantRemise;
+  const acompte = parseFloat(document.getElementById('acompte').value) || 0;
+  const reste = total - acompte;
+  document.getElementById('sous-total').textContent = fmt(sousTot);
+  document.getElementById('montant-remise').textContent = '– ' + fmt(montantRemise);
+  document.getElementById('total').textContent = fmt(total);
+  document.getElementById('reste').textContent = fmt(Math.max(0, reste));
+}
+
+function sauvegarder() {
+  const clientId = document.getElementById('client_id').value;
+  if (!clientId) { showToast('Veuillez sélectionner un client', 'error'); return; }
+  const data = {
+    client_id: clientId,
+    type_evenement: document.getElementById('type_evenement').value,
+    date_evenement: document.getElementById('date_evenement').value,
+    heure_debut: document.getElementById('heure_debut').value,
+    heure_fin: document.getElementById('heure_fin').value,
+    lieu: document.getElementById('lieu').value,
+    lignes: lignes,
+    remise: document.getElementById('remise').value,
+    acompte: document.getElementById('acompte').value,
+    notes: document.getElementById('notes').value,
+  };
+  const url = {% if devis %} '/devis/{{ devis.id }}/modifier' {% else %} '/devis/nouveau' {% endif %};
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(r=>r.json()).then(res => {
+    showToast('Devis sauvegardé !');
+    setTimeout(() => window.location.href = '/devis/' + (res.id || {{ devis.id if devis else 0 }}), 800);
+  });
+}
+
+function creerClientRapide() {
+  const nom = document.getElementById('nc-nom').value;
+  if (!nom) { showToast('Nom requis', 'error'); return; }
+  fetch('/clients/nouveau', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ nom, telephone: document.getElementById('nc-tel').value, email: document.getElementById('nc-email').value })
+  }).then(r=>r.json()).then(c => {
+    const sel = document.getElementById('client_id');
+    const opt = new Option(c.nom, c.id, true, true);
+    sel.add(opt);
+    document.getElementById('newClientModal').classList.remove('open');
+    showToast('Client créé !');
+  });
+}
+
+// Pré-sélection client via URL
+const urlParams = new URLSearchParams(window.location.search);
+const preClient = urlParams.get('client');
+if (preClient) document.getElementById('client_id').value = preClient;
+
+renderLignes();
+</script>
+{% endblock %}

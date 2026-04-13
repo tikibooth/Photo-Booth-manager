@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}{{ devis.numero }} — PhotoBooth Manager{% endblock %}
+{% block page_title %}{{ devis.numero }}{% endblock %}
+{% block topbar_actions %}
+<a href="/devis/{{ devis.id }}/modifier" class="btn btn-outline"><i class="fas fa-pen"></i> Modifier</a>
+<a href="/devis/{{ devis.id }}/pdf" class="btn btn-outline"><i class="fas fa-file-pdf"></i> PDF</a>
+{% endblock %}
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start" class="voir-grid">
+  <!-- Document principal -->
+  <div>
+    <!-- En-tête -->
+    <div class="card" style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;color:var(--gold)">{{ devis.numero }}</div>
+          <div style="color:var(--text-muted);font-size:0.875rem;margin-top:4px">Créé le {{ devis.created_at.strftime('%d/%m/%Y à %H:%M') }}</div>
+        </div>
+        <span class="badge badge-{{ devis.statut }}" style="font-size:0.85rem;padding:6px 14px">{{ devis.statut.upper() }}</span>
+      </div>
+      <hr style="border-color:var(--border);margin:20px 0">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Client</div>
+          <div style="font-weight:600;font-size:1rem">{{ devis.client.nom }}</div>
+          {% if devis.client.telephone %}<div style="color:var(--text-muted);font-size:0.875rem"><i class="fas fa-phone" style="width:14px"></i> {{ devis.client.telephone }}</div>{% endif %}
+          {% if devis.client.email %}<div style="color:var(--text-muted);font-size:0.875rem"><i class="fas fa-envelope" style="width:14px"></i> {{ devis.client.email }}</div>{% endif %}
+        </div>
+        <div>
+          <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Événement</div>
+          {% if devis.type_evenement %}<div style="font-weight:600">{{ devis.type_evenement }}</div>{% endif %}
+          {% if devis.date_evenement %}
+          <div style="color:var(--text-muted);font-size:0.875rem"><i class="fas fa-calendar" style="width:14px"></i> {{ devis.date_evenement.strftime('%d/%m/%Y') }}
+          {% if devis.heure_debut %} — {{ devis.heure_debut }}{% if devis.heure_fin %} à {{ devis.heure_fin }}{% endif %}{% endif %}</div>
+          {% endif %}
+          {% if devis.lieu %}<div style="color:var(--text-muted);font-size:0.875rem"><i class="fas fa-map-marker-alt" style="width:14px"></i> {{ devis.lieu }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Lignes -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-title"><i class="fas fa-list" style="color:var(--gold)"></i> Prestations</div>
+      <table>
+        <thead><tr><th>Description</th><th style="text-align:center">Qté</th><th style="text-align:right">Prix unit.</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>
+          {% for ligne in devis.lignes_json %}
+          <tr>
+            <td>{{ ligne.description }}</td>
+            <td style="text-align:center">{{ ligne.quantite }}</td>
+            <td style="text-align:right;color:var(--text-muted)">{{ "{:,.0f}".format(ligne.prix).replace(",", " ") }} XPF</td>
+            <td style="text-align:right"><strong>{{ "{:,.0f}".format(ligne.quantite * ligne.prix).replace(",", " ") }} XPF</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <hr style="border-color:var(--border);margin:16px 0">
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:280px;margin-left:auto">
+        <div style="display:flex;justify-content:space-between;font-size:0.9rem">
+          <span style="color:var(--text-muted)">Sous-total</span>
+          <span>{{ "{:,.0f}".format(devis.sous_total).replace(",", " ") }} XPF</span>
+        </div>
+        {% if devis.remise > 0 %}
+        <div style="display:flex;justify-content:space-between;font-size:0.9rem">
+          <span style="color:var(--text-muted)">Remise ({{ devis.remise }}%)</span>
+          <span style="color:var(--red)">– {{ "{:,.0f}".format(devis.montant_remise).replace(",", " ") }} XPF</span>
+        </div>
+        {% endif %}
+        <div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:700;padding-top:8px;border-top:1px solid var(--border)">
+          <span>Total TTC</span>
+          <span style="color:var(--gold)">{{ "{:,.0f}".format(devis.total).replace(",", " ") }} XPF</span>
+        </div>
+        {% if devis.acompte > 0 %}
+        <div style="display:flex;justify-content:space-between;font-size:0.9rem">
+          <span style="color:var(--text-muted)">Acompte versé</span>
+          <span style="color:var(--green)">– {{ "{:,.0f}".format(devis.acompte).replace(",", " ") }} XPF</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:1rem;font-weight:600">
+          <span>Reste à payer</span>
+          <span style="color:{% if devis.reste_a_payer <= 0 %}var(--green){% else %}var(--amber){% endif %}">
+            {% if devis.reste_a_payer <= 0 %}✓ Soldé{% else %}{{ "{:,.0f}".format(devis.reste_a_payer).replace(",", " ") }} XPF{% endif %}
+          </span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if devis.notes %}
+    <div class="card">
+      <div class="section-title"><i class="fas fa-sticky-note" style="color:var(--gold)"></i> Notes</div>
+      <p style="color:var(--text-muted);line-height:1.6;white-space:pre-wrap">{{ devis.notes }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Panneau actions -->
+  <div style="position:sticky;top:80px">
+    <!-- Changer statut -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title"><i class="fas fa-exchange-alt" style="color:var(--gold)"></i> Statut</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        {% for s, label, icon, color in [
+          ('devis','Devis en cours','file-alt','amber'),
+          ('accepte','Devis accepté','check-circle','blue'),
+          ('facture','Convertir en facture','file-invoice-dollar','purple'),
+          ('paye','Marquer comme payé','check-double','green'),
+          ('annule','Annuler','times-circle','gray'),
+        ] %}
+        <button class="btn btn-outline btn-sm {% if devis.statut == s %}btn-gold{% endif %}"
+          onclick="changerStatut('{{ s }}')"
+          {% if devis.statut == s %}disabled{% endif %}>
+          <i class="fas fa-{{ icon }}" style="color:var(--{{ color }})"></i> {{ label }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Liens rapides -->
+    <div class="card">
+      <div class="section-title"><i class="fas fa-bolt" style="color:var(--gold)"></i> Actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="/devis/nouveau?client={{ devis.client.id }}" class="btn btn-outline btn-sm"><i class="fas fa-copy"></i> Nouveau devis (même client)</a>
+        <a href="/clients/{{ devis.client.id }}" class="btn btn-outline btn-sm"><i class="fas fa-user"></i> Voir le client</a>
+        <a href="/devis/{{ devis.id }}/pdf" class="btn btn-outline btn-sm"><i class="fas fa-download"></i> Télécharger PDF</a>
+        <button class="btn btn-danger btn-sm" onclick="supprimer()"><i class="fas fa-trash"></i> Supprimer</button>
+      </div>
+    </div>
+  </div>
+</div>
+<style>@media(max-width:768px){.voir-grid{grid-template-columns:1fr!important}}</style>
+{% endblock %}
+{% block scripts %}
+<script>
+function changerStatut(s) {
+  if (!confirm(`Passer au statut "${s}" ?`)) return;
+  fetch('/devis/{{ devis.id }}/statut', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({statut: s})
+  }).then(r=>r.json()).then(() => { showToast('Statut mis à jour !'); setTimeout(()=>location.reload(), 800); });
+}
+function supprimer() {
+  if (!confirm('Supprimer ce document définitivement ?')) return;
+  fetch('/devis/{{ devis.id }}/supprimer', {method:'DELETE'})
+    .then(r=>r.json()).then(() => { showToast('Supprimé'); setTimeout(()=>window.location.href='/devis', 800); });
+}
+</script>
+{% endblock %}

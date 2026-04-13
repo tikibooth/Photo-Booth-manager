@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Calendrier — PhotoBooth Manager{% endblock %}
+{% block page_title %}Calendrier{% endblock %}
+{% block topbar_actions %}
+<a href="/api/ical" class="btn btn-outline"><i class="fas fa-download"></i> Export iCal</a>
+<a href="/devis/nouveau" class="btn btn-gold"><i class="fas fa-plus"></i> Nouveau devis</a>
+{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.11/index.global.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.11/index.global.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.11/locales/fr.global.min.js"></script>
+<style>
+#calendar { background: transparent; }
+.fc { --fc-border-color: var(--border); --fc-page-bg-color: transparent; --fc-neutral-bg-color: var(--surface2); --fc-list-event-hover-bg-color: var(--surface2); --fc-today-bg-color: rgba(201,168,76,0.08); --fc-event-border-color: transparent; color: var(--text); }
+.fc-toolbar-title { font-family: 'Playfair Display', serif !important; font-size: 1.3rem !important; }
+.fc-button { background: var(--surface2) !important; border: 1px solid var(--border) !important; color: var(--text) !important; font-family: 'DM Sans', sans-serif !important; }
+.fc-button-active, .fc-button:hover { background: rgba(201,168,76,0.2) !important; border-color: var(--gold) !important; color: var(--gold) !important; }
+.fc-daygrid-day-number, .fc-col-header-cell-cushion { color: var(--text-muted) !important; text-decoration: none !important; }
+.fc-daygrid-day.fc-day-today .fc-daygrid-day-number { color: var(--gold) !important; font-weight: 700; }
+.fc-event { border-radius: 4px !important; font-size: 0.78rem !important; cursor: pointer; }
+.fc-event-title { font-weight: 500 !important; }
+/* Légende */
+.legende { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+.leg-item { display:flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--text-muted); }
+.leg-dot { width:10px; height:10px; border-radius:50%; }
+/* Popup événement */
+#eventPopup {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  z-index: 500;
+  min-width: 260px;
+  max-width: 320px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  display: none;
+}
+</style>
+{% endblock %}
+{% block content %}
+<!-- Légende -->
+<div class="legende">
+  <div class="leg-item"><div class="leg-dot" style="background:#F59E0B"></div> Devis</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#3B82F6"></div> Accepté</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#8B5CF6"></div> Facture</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#10B981"></div> Payé</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#6B7280"></div> Annulé</div>
+</div>
+
+<div class="card">
+  <div id="calendar"></div>
+</div>
+
+<!-- Popup infos événement -->
+<div id="eventPopup">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+    <div>
+      <div id="ep-client" style="font-weight:700;font-size:1rem"></div>
+      <div id="ep-type" style="color:var(--text-muted);font-size:0.82rem"></div>
+    </div>
+    <button onclick="document.getElementById('eventPopup').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem">✕</button>
+  </div>
+  <div id="ep-lieu" style="font-size:0.82rem;color:var(--text-muted);margin-bottom:4px"></div>
+  <div id="ep-heure" style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px"></div>
+  <div id="ep-statut" style="margin-bottom:8px"></div>
+  <div id="ep-total" style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--gold);margin-bottom:12px"></div>
+  <a id="ep-link" href="#" class="btn btn-gold btn-sm" style="width:100%;justify-content:center">Voir le détail</a>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    locale: 'fr',
+    initialView: window.innerWidth < 600 ? 'listMonth' : 'dayGridMonth',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,listMonth'
+    },
+    events: '/api/evenements',
+    eventClick: function(info) {
+      info.jsEvent.preventDefault();
+      const p = info.event.extendedProps;
+      const popup = document.getElementById('eventPopup');
+      const title = info.event.title.replace(/^[^\s]+ /, '');
+      document.getElementById('ep-client').textContent = title;
+      document.getElementById('ep-type').textContent = p.type || 'PhotoBooth';
+      document.getElementById('ep-lieu').innerHTML = p.lieu ? `<i class="fas fa-map-marker-alt"></i> ${p.lieu}` : '';
+      document.getElementById('ep-heure').innerHTML = p.heure_debut ? `<i class="fas fa-clock"></i> ${p.heure_debut}${p.heure_fin?' – '+p.heure_fin:''}` : '';
+      document.getElementById('ep-statut').innerHTML = `<span class="badge badge-${p.statut}">${p.statut}</span>`;
+      document.getElementById('ep-total').textContent = new Intl.NumberFormat('fr-FR').format(Math.round(p.total)) + ' XPF';
+      document.getElementById('ep-link').href = info.event.url;
+
+      // Positionnement
+      const rect = info.el.getBoundingClientRect();
+      popup.style.display = 'block';
+      popup.style.top = Math.min(rect.bottom + 8, window.innerHeight - 300) + 'px';
+      popup.style.left = Math.min(rect.left, window.innerWidth - 340) + 'px';
+    },
+    eventDidMount: function(info) {
+      info.el.title = info.event.title;
+    }
+  });
+  cal.render();
+
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('eventPopup').contains(e.target) && !e.target.closest('.fc-event')) {
+      document.getElementById('eventPopup').style.display = 'none';
+    }
+  });
+});
+</script>
+{% endblock %}

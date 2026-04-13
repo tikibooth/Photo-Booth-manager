@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{% if client %}Modifier{% else %}Nouveau{% endif %} client — PhotoBooth Manager{% endblock %}
+{% block page_title %}{% if client %}Modifier le client{% else %}Nouveau client{% endif %}{% endblock %}
+{% block topbar_actions %}
+<a href="/clients" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Retour</a>
+{% endblock %}
+{% block content %}
+<div class="card" style="max-width:600px;margin:0 auto">
+  <div class="form-group">
+    <label class="form-label">Nom complet *</label>
+    <input type="text" class="form-control" id="nom" value="{{ client.nom if client else '' }}" placeholder="Marie Dupont" required>
+  </div>
+  <div class="form-grid">
+    <div class="form-group">
+      <label class="form-label">Téléphone</label>
+      <input type="tel" class="form-control" id="telephone" value="{{ client.telephone if client else '' }}" placeholder="+687 12 34 56">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-control" id="email" value="{{ client.email if client else '' }}" placeholder="marie@exemple.fr">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Adresse</label>
+    <textarea class="form-control" id="adresse" rows="2" placeholder="123 rue de la Paix, Nouméa">{{ client.adresse if client else '' }}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Notes internes</label>
+    <textarea class="form-control" id="notes" rows="3" placeholder="Préférences, remarques...">{{ client.notes if client else '' }}</textarea>
+  </div>
+  <div style="display:flex;gap:10px;justify-content:flex-end">
+    <a href="/clients" class="btn btn-outline">Annuler</a>
+    <button class="btn btn-gold" onclick="sauvegarder()"><i class="fas fa-save"></i> Sauvegarder</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function sauvegarder() {
+  const data = {
+    nom: document.getElementById('nom').value,
+    telephone: document.getElementById('telephone').value,
+    email: document.getElementById('email').value,
+    adresse: document.getElementById('adresse').value,
+    notes: document.getElementById('notes').value,
+  };
+  if (!data.nom) { showToast('Le nom est requis', 'error'); return; }
+  const url = {% if client %} '/clients/{{ client.id }}/modifier' {% else %} '/clients/nouveau' {% endif %};
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(r=>r.json()).then(res => {
+    showToast('Client sauvegardé !');
+    setTimeout(() => window.location.href = '/clients', 800);
+  });
+}
+</script>
+{% endblock %}

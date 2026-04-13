@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Arial', sans-serif; font-size: 11pt; color: #1a1a1a; background: #fff; }
+.page { padding: 40px; max-width: 800px; margin: 0 auto; }
+/* En-tête */
+.header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 2px solid #C9A84C; }
+.company-name { font-size: 22pt; font-weight: 700; color: #C9A84C; letter-spacing: -0.02em; }
+.company-sub { font-size: 8pt; color: #888; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 4px; }
+.doc-info { text-align: right; }
+.doc-number { font-size: 16pt; font-weight: 700; color: #1a1a1a; }
+.doc-date { font-size: 9pt; color: #888; margin-top: 4px; }
+/* Badge statut */
+.statut-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px; }
+.statut-devis { background: #FEF3C7; color: #D97706; }
+.statut-accepte { background: #DBEAFE; color: #2563EB; }
+.statut-facture { background: #EDE9FE; color: #7C3AED; }
+.statut-paye { background: #D1FAE5; color: #059669; }
+.statut-annule { background: #F3F4F6; color: #6B7280; }
+/* Parties -->
+.parties { display: flex; gap: 40px; margin-bottom: 32px; }
+.partie { flex: 1; }
+.partie-title { font-size: 8pt; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e5e5e5; }
+.partie-name { font-size: 12pt; font-weight: 700; margin-bottom: 4px; }
+.partie-detail { font-size: 9pt; color: #666; line-height: 1.6; }
+/* Événement -->
+.event-box { background: #FFFBF0; border: 1px solid #F3E5B0; border-radius: 8px; padding: 16px; margin-bottom: 28px; display: flex; gap: 32px; flex-wrap: wrap; }
+.event-item { }
+.event-label { font-size: 8pt; color: #888; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 3px; }
+.event-value { font-size: 10pt; font-weight: 600; color: #1a1a1a; }
+/* Table -->
+table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+thead th { background: #1a1a1a; color: #fff; padding: 10px 12px; text-align: left; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.08em; }
+thead th:last-child, thead th:nth-last-child(2), thead th:nth-last-child(3) { text-align: right; }
+tbody td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-size: 10pt; }
+tbody td:last-child, tbody td:nth-last-child(2), tbody td:nth-last-child(3) { text-align: right; }
+tbody tr:nth-child(even) td { background: #FAFAFA; }
+/* Totaux -->
+.totaux { display: flex; justify-content: flex-end; margin-bottom: 32px; }
+.totaux-inner { width: 280px; }
+.total-line { display: flex; justify-content: space-between; padding: 6px 0; font-size: 10pt; border-bottom: 1px solid #f0f0f0; }
+.total-line.main { font-size: 13pt; font-weight: 700; border-bottom: 2px solid #C9A84C; color: #C9A84C; padding: 10px 0; }
+.total-line.reste { font-size: 11pt; font-weight: 600; }
+/* Notes -->
+.notes { background: #F9F9F9; border-left: 3px solid #C9A84C; padding: 12px 16px; margin-bottom: 32px; font-size: 9pt; color: #555; line-height: 1.6; }
+/* Footer -->
+.footer { text-align: center; font-size: 8pt; color: #aaa; border-top: 1px solid #e5e5e5; padding-top: 16px; }
+@media print { .page { padding: 20px; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- En-tête -->
+  <div class="header">
+    <div>
+      <div class="company-name">📸 PhotoBooth</div>
+      <div class="company-sub">Location & Animation</div>
+    </div>
+    <div class="doc-info">
+      <div class="doc-number">{{ devis.numero }}</div>
+      <div class="doc-date">Émis le {{ devis.created_at.strftime('%d/%m/%Y') }}</div>
+      <div class="doc-date">Mis à jour le {{ devis.updated_at.strftime('%d/%m/%Y') }}</div>
+      <div><span class="statut-badge statut-{{ devis.statut }}">{{ devis.statut }}</span></div>
+    </div>
+  </div>
+
+  <!-- Parties -->
+  <div class="parties">
+    <div class="partie">
+      <div class="partie-title">De</div>
+      <div class="partie-name">PhotoBooth Manager</div>
+      <div class="partie-detail">Nouvelle-Calédonie<br>contact@photobooth.nc</div>
+    </div>
+    <div class="partie">
+      <div class="partie-title">À</div>
+      <div class="partie-name">{{ devis.client.nom }}</div>
+      <div class="partie-detail">
+        {% if devis.client.telephone %}{{ devis.client.telephone }}<br>{% endif %}
+        {% if devis.client.email %}{{ devis.client.email }}<br>{% endif %}
+        {% if devis.client.adresse %}{{ devis.client.adresse }}{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Événement -->
+  {% if devis.date_evenement or devis.lieu or devis.type_evenement %}
+  <div class="event-box">
+    {% if devis.type_evenement %}
+    <div class="event-item">
+      <div class="event-label">Type d'événement</div>
+      <div class="event-value">{{ devis.type_evenement }}</div>
+    </div>
+    {% endif %}
+    {% if devis.date_evenement %}
+    <div class="event-item">
+      <div class="event-label">Date</div>
+      <div class="event-value">{{ devis.date_evenement.strftime('%d/%m/%Y') }}</div>
+    </div>
+    {% endif %}
+    {% if devis.heure_debut %}
+    <div class="event-item">
+      <div class="event-label">Horaires</div>
+      <div class="event-value">{{ devis.heure_debut }}{% if devis.heure_fin %} – {{ devis.heure_fin }}{% endif %}</div>
+    </div>
+    {% endif %}
+    {% if devis.lieu %}
+    <div class="event-item">
+      <div class="event-label">Lieu</div>
+      <div class="event-value">{{ devis.lieu }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Prestations -->
+  <table>
+    <thead>
+      <tr><th>Description</th><th>Qté</th><th>Prix unit.</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      {% for ligne in devis.lignes_json %}
+      <tr>
+        <td>{{ ligne.description }}</td>
+        <td style="text-align:center">{{ ligne.quantite }}</td>
+        <td>{{ "{:,.0f}".format(ligne.prix).replace(",", " ") }} XPF</td>
+        <td><strong>{{ "{:,.0f}".format(ligne.quantite * ligne.prix).replace(",", " ") }} XPF</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totaux -->
+  <div class="totaux">
+    <div class="totaux-inner">
+      <div class="total-line">
+        <span>Sous-total</span>
+        <span>{{ "{:,.0f}".format(devis.sous_total).replace(",", " ") }} XPF</span>
+      </div>
+      {% if devis.remise > 0 %}
+      <div class="total-line">
+        <span>Remise ({{ devis.remise }}%)</span>
+        <span style="color:#EF4444">– {{ "{:,.0f}".format(devis.montant_remise).replace(",", " ") }} XPF</span>
+      </div>
+      {% endif %}
+      <div class="total-line main">
+        <span>Total TTC</span>
+        <span>{{ "{:,.0f}".format(devis.total).replace(",", " ") }} XPF</span>
+      </div>
+      {% if devis.acompte > 0 %}
+      <div class="total-line">
+        <span>Acompte</span>
+        <span style="color:#059669">– {{ "{:,.0f}".format(devis.acompte).replace(",", " ") }} XPF</span>
+      </div>
+      <div class="total-line reste">
+        <span>Reste à payer</span>
+        <span>{{ "{:,.0f}".format([devis.reste_a_payer, 0]|max).replace(",", " ") }} XPF</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Notes -->
+  {% if devis.notes %}
+  <div class="notes">
+    <strong>Notes :</strong><br>{{ devis.notes }}
+  </div>
+  {% endif %}
+
+  <div class="footer">
+    PhotoBooth Manager — Document généré le {{ devis.created_at.strftime('%d/%m/%Y') }} — Tarifs en Franc CFP (XPF)
+  </div>
+</div>
+</body>
+</html>

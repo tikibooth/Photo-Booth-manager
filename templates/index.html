@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord — PhotoBooth Manager{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+{% block topbar_actions %}
+<a href="/devis/nouveau" class="btn btn-gold"><i class="fas fa-plus"></i> Nouveau devis</a>
+{% endblock %}
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<!-- STATS -->
+<div class="stat-grid">
+  <div class="stat-card" style="--accent: var(--gold)">
+    <div class="stat-label">Clients</div>
+    <div class="stat-value">{{ stats.total_clients }}</div>
+    <div class="stat-sub">dans votre base</div>
+  </div>
+  <div class="stat-card" style="--accent: var(--amber)">
+    <div class="stat-label">Devis en attente</div>
+    <div class="stat-value">{{ stats.devis_en_cours }}</div>
+    <div class="stat-sub">à confirmer</div>
+  </div>
+  <div class="stat-card" style="--accent: var(--purple)">
+    <div class="stat-label">Factures impayées</div>
+    <div class="stat-value">{{ stats.factures_impayees }}</div>
+    <div class="stat-sub">en attente de règlement</div>
+  </div>
+  <div class="stat-card" style="--accent: var(--green)">
+    <div class="stat-label">CA Encaissé</div>
+    <div class="stat-value" style="font-size:1.5rem">{{ "{:,.0f}".format(stats.ca_paye).replace(",", " ") }}</div>
+    <div class="stat-sub" style="color:var(--text-muted)">XPF perçus</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px" class="dashboard-grid">
+  <!-- Graphique CA -->
+  <div class="card">
+    <div class="section-title"><i class="fas fa-chart-line" style="color:var(--gold)"></i> Chiffre d'affaires</div>
+    <canvas id="caChart" height="200"></canvas>
+  </div>
+
+  <!-- Prochains événements -->
+  <div class="card">
+    <div class="section-title"><i class="fas fa-calendar" style="color:var(--gold)"></i> Prochains événements</div>
+    {% if prochains %}
+    <div style="display:flex;flex-direction:column;gap:10px">
+      {% for d in prochains %}
+      <a href="/devis/{{ d.id }}" style="text-decoration:none">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);transition:all 0.2s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;min-width:48px">
+            <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase">{{ d.date_evenement.strftime('%b') }}</div>
+            <div style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;line-height:1;color:var(--gold)">{{ d.date_evenement.day }}</div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:500;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.client.nom }}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">{{ d.type_evenement or 'PhotoBooth' }} — {{ d.lieu or '–' }}</div>
+          </div>
+          <div style="text-align:right">
+            <span class="badge badge-{{ d.statut }}">{{ d.statut }}</span>
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">{{ "{:,.0f}".format(d.total).replace(",", " ") }} XPF</div>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty"><i class="fas fa-calendar-plus"></i><p>Aucun événement à venir</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Récents -->
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="section-title" style="margin:0"><i class="fas fa-clock" style="color:var(--gold)"></i> Activité récente</div>
+    <a href="/devis" class="btn btn-outline btn-sm">Voir tout</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Numéro</th><th>Client</th><th>Événement</th><th>Total</th><th>Statut</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for d in recents %}
+        <tr>
+          <td><code style="color:var(--gold);font-size:0.82rem">{{ d.numero }}</code></td>
+          <td><strong>{{ d.client.nom }}</strong></td>
+          <td style="color:var(--text-muted)">{{ d.date_evenement.strftime('%d/%m/%Y') if d.date_evenement else '–' }}</td>
+          <td><strong>{{ "{:,.0f}".format(d.total).replace(",", " ") }} XPF</strong></td>
+          <td><span class="badge badge-{{ d.statut }}">{{ d.statut }}</span></td>
+          <td><a href="/devis/{{ d.id }}" class="btn btn-outline btn-sm btn-icon"><i class="fas fa-eye"></i></a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px">Aucun document créé</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+@media(max-width:768px){.dashboard-grid{grid-template-columns:1fr!important}}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+fetch('/api/stats').then(r=>r.json()).then(data => {
+  const mois = Object.keys(data.par_mois).sort().slice(-8);
+  const vals = mois.map(m => data.par_mois[m] || 0);
+  const labels = mois.map(m => {
+    const [y,mo] = m.split('-');
+    return new Date(y, mo-1).toLocaleDateString('fr-FR', {month:'short',year:'2-digit'});
+  });
+  new Chart(document.getElementById('caChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'CA (XPF)',
+        data: vals,
+        backgroundColor: 'rgba(201,168,76,0.3)',
+        borderColor: '#C9A84C',
+        borderWidth: 2,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8A8A9A' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#8A8A9A', callback: v => (v/1000)+'k' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}
