@@ -1,3 +1,5 @@
 flask
 flask-sqlalchemy
 weasyprint
+
+psycopg2-binary
