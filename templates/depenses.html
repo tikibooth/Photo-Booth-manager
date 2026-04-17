@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Dépenses — PhotoBooth Manager{% endblock %}
+{% block page_title %}Dépenses{% endblock %}
+{% block topbar_actions %}
+<a href="/depenses/export-csv?mois={{ mois }}" class="btn btn-outline btn-sm"><i class="fas fa-file-csv"></i> CSV</a>
+<a href="/depenses/export-pdf?mois={{ mois }}" class="btn btn-outline btn-sm"><i class="fas fa-file-pdf"></i> PDF</a>
+<button class="btn btn-gold" onclick="document.getElementById('modalNvDep').classList.add('open')"><i class="fas fa-plus"></i> Nouvelle dépense</button>
+{% endblock %}
+{% block content %}
+
+<!-- Sélecteur de mois -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
+  <label class="form-label" style="margin:0">Mois :</label>
+  <input type="month" class="form-control" id="moisSelect" value="{{ mois }}" style="width:180px" onchange="window.location='/depenses?mois='+this.value">
+</div>
+
+<!-- Stats du mois -->
+<div class="stat-grid" style="margin-bottom:24px">
+  <div class="stat-card" style="--accent:var(--red)">
+    <div class="stat-label">Total dépenses</div>
+    <div class="stat-value" style="font-size:1.6rem">{{ "{:,.0f}".format(total).replace(",", " ") }}</div>
+    <div class="stat-sub">XPF ce mois</div>
+  </div>
+  <div class="stat-card" style="--accent:var(--gold)">
+    <div class="stat-label">Tiago</div>
+    <div class="stat-value" style="font-size:1.6rem">{{ "{:,.0f}".format(total_tiago).replace(",", " ") }}</div>
+    <div class="stat-sub">XPF avancés</div>
+  </div>
+  <div class="stat-card" style="--accent:var(--blue)">
+    <div class="stat-label">Paul</div>
+    <div class="stat-value" style="font-size:1.6rem">{{ "{:,.0f}".format(total_paul).replace(",", " ") }}</div>
+    <div class="stat-sub">XPF avancés</div>
+  </div>
+  <div class="stat-card" style="--accent:var(--purple)">
+    <div class="stat-label">Nbre dépenses</div>
+    <div class="stat-value">{{ depenses|length }}</div>
+    <div class="stat-sub">ce mois</div>
+  </div>
+</div>
+
+<!-- Répartition par catégorie -->
+{% if par_cat %}
+<div class="card" style="margin-bottom:24px">
+  <div class="section-title"><i class="fas fa-chart-pie" style="color:var(--gold)"></i> Répartition</div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    {% set colors = {'carburant':'var(--amber)','materiel':'var(--blue)','repas':'var(--green)','transport':'var(--purple)','autre':'var(--gray)'} %}
+    {% set icons = {'carburant':'gas-pump','materiel':'tools','repas':'utensils','transport':'car','autre':'ellipsis-h'} %}
+    {% for cat, montant in par_cat.items() %}
+    <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px 16px;display:flex;align-items:center;gap:10px;min-width:160px">
+      <i class="fas fa-{{ icons.get(cat,'ellipsis-h') }}" style="color:{{ colors.get(cat,'var(--gray)') }};font-size:1.1rem"></i>
+      <div>
+        <div style="font-size:0.75rem;color:var(--text-muted);text-transform:capitalize">{{ cat }}</div>
+        <div style="font-weight:600">{{ "{:,.0f}".format(montant).replace(",", " ") }} XPF</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Liste des dépenses -->
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Catégorie</th><th>Description</th><th>Payé par</th><th>Montant</th><th>Ticket</th><th>Statut</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for d in depenses %}
+        <tr>
+          <td style="white-space:nowrap">{{ d.date.strftime('%d/%m/%Y') }}</td>
+          <td>
+            {% set icons = {'carburant':'gas-pump','materiel':'tools','repas':'utensils','transport':'car','autre':'ellipsis-h'} %}
+            <i class="fas fa-{{ icons.get(d.categorie,'ellipsis-h') }}" style="margin-right:6px;color:var(--gold)"></i>{{ d.categorie|capitalize }}
+          </td>
+          <td>
+            <div style="font-weight:500">{{ d.description }}</div>
+            {% if d.notes %}<div style="font-size:0.75rem;color:var(--text-muted)">{{ d.notes }}</div>{% endif %}
+            {% if d.devis_id %}<div style="font-size:0.75rem;color:var(--text-muted)"><i class="fas fa-link"></i> {{ d.devis.numero }}</div>{% endif %}
+          </td>
+          <td><span style="color:var(--gold);font-weight:500">👤 {{ d.paye_par }}</span></td>
+          <td><strong style="color:var(--red)">{{ "{:,.0f}".format(d.montant).replace(",", " ") }} XPF</strong></td>
+          <td>
+            {% if d.ticket_photo %}
+            <button class="btn btn-outline btn-sm btn-icon" onclick="voirTicket('{{ d.id }}')" title="Voir ticket"><i class="fas fa-image"></i></button>
+            {% else %}
+            <span style="color:var(--text-muted);font-size:0.78rem">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge {% if d.statut == 'rembourse' %}badge-paye{% else %}badge-devis{% endif %}">
+              {% if d.statut == 'rembourse' %}✅ Remboursé{% else %}⏳ En attente{% endif %}
+            </span>
+          </td>
+          <td>
+            <div style="display:flex;gap:6px">
+              {% if d.statut == 'en_attente' %}
+              <button class="btn btn-outline btn-sm btn-icon" onclick="marquerRembourse({{ d.id }})" title="Marquer remboursé"><i class="fas fa-check" style="color:var(--green)"></i></button>
+              {% endif %}
+              <button class="btn btn-danger btn-sm btn-icon" onclick="supprimerDep({{ d.id }})"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8">
+          <div class="empty"><i class="fas fa-receipt"></i><p>Aucune dépense ce mois</p></div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Nouvelle Dépense -->
+<div class="modal-overlay" id="modalNvDep">
+  <div class="modal" style="max-width:540px">
+    <h2><i class="fas fa-receipt" style="color:var(--gold)"></i> Nouvelle dépense</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input type="date" class="form-control" id="dep-date" value="{{ mois }}-01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Montant (XPF) *</label>
+        <input type="number" class="form-control" id="dep-montant" min="0" placeholder="5000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Catégorie</label>
+        <select class="form-control" id="dep-cat">
+          <option value="carburant">⛽ Carburant</option>
+          <option value="materiel">🔧 Matériel</option>
+          <option value="repas">🍽️ Repas</option>
+          <option value="transport">🚗 Transport</option>
+          <option value="autre">📦 Autre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payé par</label>
+        <select class="form-control" id="dep-paye">
+          <option value="Tiago">👤 Tiago</option>
+          <option value="Paul">👤 Paul</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Description *</label>
+        <input type="text" class="form-control" id="dep-desc" placeholder="Ex: Carburant bateau événement mariage">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Photo du ticket</label>
+        <input type="file" class="form-control" id="dep-ticket" accept="image/*" capture="environment" onchange="chargerTicket(this)">
+        <div id="ticket-preview" style="margin-top:8px;display:none">
+          <img id="ticket-img" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border)">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lier à un devis</label>
+        <select class="form-control" id="dep-devis">
+          <option value="">— Aucun —</option>
+          {% for d in devis_list %}
+          <option value="{{ d.id }}">{{ d.numero }} — {{ d.client.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" class="form-control" id="dep-notes" placeholder="Remarques...">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-outline" onclick="document.getElementById('modalNvDep').classList.remove('open')">Annuler</button>
+      <button class="btn btn-gold" onclick="creerDepense()"><i class="fas fa-save"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ticket -->
+<div class="modal-overlay" id="modalTicket">
+  <div class="modal" style="max-width:500px;text-align:center">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2>🧾 Ticket</h2>
+      <button onclick="document.getElementById('modalTicket').classList.remove('open')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem">✕</button>
+    </div>
+    <img id="ticket-modal-img" style="max-width:100%;border-radius:8px">
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+let ticketBase64 = '';
+
+function chargerTicket(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    ticketBase64 = e.target.result;
+    document.getElementById('ticket-img').src = ticketBase64;
+    document.getElementById('ticket-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function creerDepense() {
+  const montant = document.getElementById('dep-montant').value;
+  const desc = document.getElementById('dep-desc').value;
+  const date = document.getElementById('dep-date').value;
+  if (!montant || !desc || !date) { showToast('Remplis les champs obligatoires', 'error'); return; }
+  
+  fetch('/depenses/nouvelle', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      date, montant,
+      categorie: document.getElementById('dep-cat').value,
+      description: desc,
+      paye_par: document.getElementById('dep-paye').value,
+      devis_id: document.getElementById('dep-devis').value,
+      ticket_photo: ticketBase64,
+      notes: document.getElementById('dep-notes').value,
+    })
+  }).then(r=>r.json()).then(() => {
+    showToast('Dépense enregistrée !');
+    setTimeout(() => location.reload(), 800);
+  });
+}
+
+function marquerRembourse(id) {
+  fetch(`/depenses/${id}/statut`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({statut: 'rembourse'})
+  }).then(() => { showToast('Marqué remboursé !'); setTimeout(() => location.reload(), 600); });
+}
+
+function supprimerDep(id) {
+  if (!confirm('Supprimer cette dépense ?')) return;
+  fetch(`/depenses/${id}/supprimer`, {method: 'DELETE'})
+    .then(() => { showToast('Supprimée'); location.reload(); });
+}
+
+// Les tickets sont stockés en base64 dans la DB - on affiche directement
+function voirTicket(id) {
+  // On récupère la photo depuis la ligne du tableau
+  const rows = document.querySelectorAll('tbody tr');
+  // Simple approach: reload page with ticket param
+  fetch(`/api/depense-ticket/${id}`).then(r=>r.json()).then(d => {
+    if (d.photo) {
+      document.getElementById('ticket-modal-img').src = d.photo;
+      document.getElementById('modalTicket').classList.add('open');
+    }
+  });
+}
+</script>
+{% endblock %}

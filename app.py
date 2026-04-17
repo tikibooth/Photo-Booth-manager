@@ -515,6 +515,132 @@ def api_alertes():
     alertes = Materiel.query.filter(Materiel.quantite <= Materiel.seuil_alerte).all()
     return jsonify({'count': len(alertes), 'items': [{'nom': m.nom, 'quantite': m.quantite, 'unite': m.unite, 'seuil': m.seuil_alerte} for m in alertes]})
 
+
+class Depense(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False, default=lambda: __import__('datetime').date.today())
+    montant = db.Column(db.Float, nullable=False)
+    categorie = db.Column(db.String(100))  # carburant, materiel, repas, transport, autre
+    description = db.Column(db.String(300))
+    paye_par = db.Column(db.String(100))  # Tiago, Paul
+    statut = db.Column(db.String(50), default='en_attente')  # en_attente, rembourse
+    devis_id = db.Column(db.Integer, db.ForeignKey('devis.id'), nullable=True)
+    ticket_photo = db.Column(db.Text)  # base64 encoded image
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ── DÉPENSES ─────────────────────────────────────────────────────────────────
+
+@app.route('/depenses')
+def liste_depenses():
+    from datetime import date as dt_date
+    mois = request.args.get('mois', dt_date.today().strftime('%Y-%m'))
+    annee, mois_num = mois.split('-')
+    depenses = Depense.query.filter(
+        db.func.strftime('%Y', Depense.date) == annee,
+        db.func.strftime('%m', Depense.date) == mois_num
+    ).order_by(Depense.date.desc()).all()
+    
+    total = sum(d.montant for d in depenses)
+    total_tiago = sum(d.montant for d in depenses if d.paye_par == 'Tiago')
+    total_paul = sum(d.montant for d in depenses if d.paye_par == 'Paul')
+    
+    par_cat = {}
+    for d in depenses:
+        par_cat[d.categorie] = par_cat.get(d.categorie, 0) + d.montant
+    
+    devis_list = Devis.query.order_by(Devis.created_at.desc()).limit(20).all()
+    return render_template('depenses.html', depenses=depenses, mois=mois,
+        total=total, total_tiago=total_tiago, total_paul=total_paul,
+        par_cat=par_cat, devis_list=devis_list)
+
+@app.route('/depenses/nouvelle', methods=['POST'])
+def nouvelle_depense():
+    d = request.get_json()
+    dep = Depense(
+        date=datetime.strptime(d['date'], '%Y-%m-%d').date(),
+        montant=float(d['montant']),
+        categorie=d.get('categorie', 'autre'),
+        description=d.get('description', ''),
+        paye_par=d.get('paye_par', ''),
+        statut='en_attente',
+        devis_id=int(d['devis_id']) if d.get('devis_id') else None,
+        ticket_photo=d.get('ticket_photo', ''),
+        notes=d.get('notes', '')
+    )
+    db.session.add(dep)
+    db.session.commit()
+    return jsonify({'id': dep.id})
+
+@app.route('/depenses/<int:id>/statut', methods=['POST'])
+def statut_depense(id):
+    dep = Depense.query.get_or_404(id)
+    d = request.get_json()
+    dep.statut = d['statut']
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/depenses/<int:id>/supprimer', methods=['DELETE'])
+def supprimer_depense(id):
+    dep = Depense.query.get_or_404(id)
+    db.session.delete(dep)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/depenses/export-csv')
+def export_depenses_csv():
+    from datetime import date as dt_date
+    import csv
+    mois = request.args.get('mois', dt_date.today().strftime('%Y-%m'))
+    annee, mois_num = mois.split('-')
+    depenses = Depense.query.filter(
+        db.func.strftime('%Y', Depense.date) == annee,
+        db.func.strftime('%m', Depense.date) == mois_num
+    ).order_by(Depense.date).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    writer.writerow(['Date', 'Catégorie', 'Description', 'Payé par', 'Montant (XPF)', 'Statut', 'Notes'])
+    for d in depenses:
+        writer.writerow([
+            d.date.strftime('%d/%m/%Y'), d.categorie, d.description,
+            d.paye_par, d.montant, d.statut, d.notes or ''
+        ])
+    output.seek(0)
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'depenses_{mois}.csv'
+    )
+
+@app.route('/depenses/export-pdf')
+def export_depenses_pdf():
+    from datetime import date as dt_date
+    mois = request.args.get('mois', dt_date.today().strftime('%Y-%m'))
+    annee, mois_num = mois.split('-')
+    depenses = Depense.query.filter(
+        db.func.strftime('%Y', Depense.date) == annee,
+        db.func.strftime('%m', Depense.date) == mois_num
+    ).order_by(Depense.date).all()
+    total = sum(d.montant for d in depenses)
+    total_tiago = sum(d.montant for d in depenses if d.paye_par == 'Tiago')
+    total_paul = sum(d.montant for d in depenses if d.paye_par == 'Paul')
+    html = render_template('depenses_pdf.html', depenses=depenses, mois=mois,
+        total=total, total_tiago=total_tiago, total_paul=total_paul)
+    try:
+        from weasyprint import HTML
+        pdf = HTML(string=html).write_pdf()
+        return send_file(io.BytesIO(pdf), mimetype='application/pdf',
+            as_attachment=True, download_name=f'depenses_{mois}.pdf')
+    except ImportError:
+        return html, 200, {'Content-Type': 'text/html'}
+
+@app.route('/api/depense-ticket/<int:id>')
+def api_depense_ticket(id):
+    dep = Depense.query.get_or_404(id)
+    return jsonify({'photo': dep.ticket_photo or ''})
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

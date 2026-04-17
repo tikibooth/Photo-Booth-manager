@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+.page { padding: 30px 40px; max-width: 794px; margin: 0 auto; }
+.header { background: #0D7A6F; color: white; padding: 20px 28px; border-radius: 8px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 16pt; font-weight: 700; }
+.header .sub { font-size: 9pt; opacity: 0.7; margin-top: 4px; }
+.header .mois { font-size: 14pt; font-weight: 700; }
+.stats { display: flex; gap: 16px; margin-bottom: 24px; }
+.stat { flex: 1; background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px; text-align: center; }
+.stat .label { font-size: 8pt; color: #888; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+.stat .value { font-size: 14pt; font-weight: 700; }
+.stat.tiago .value { color: #C9A84C; }
+.stat.paul .value { color: #3B82F6; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+thead tr { background: #0D7A6F; }
+thead th { color: white; padding: 9px 12px; text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.08em; }
+tbody tr:nth-child(even) { background: #f9f9f9; }
+tbody td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; font-size: 9.5pt; }
+.badge-rembourse { background: #D1FAE5; color: #059669; padding: 2px 8px; border-radius: 10px; font-size: 8pt; }
+.badge-attente { background: #FEF3C7; color: #D97706; padding: 2px 8px; border-radius: 10px; font-size: 8pt; }
+.total-row td { font-weight: 700; background: #f0f0f0; border-top: 2px solid #0D7A6F; }
+.ticket-thumb { max-width: 60px; max-height: 60px; border-radius: 4px; }
+.footer { text-align: center; font-size: 8pt; color: #aaa; margin-top: 24px; border-top: 1px solid #e0e0e0; padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Tikibooth — Rapport de dépenses</h1>
+      <div class="sub">Bora Bora, Polynésie française · tikibooth@outlook.com</div>
+    </div>
+    <div class="mois">{{ mois }}</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Total</div>
+      <div class="value" style="color:#EF4444">{{ "{:,.0f}".format(total).replace(",", " ") }} XPF</div>
+    </div>
+    <div class="stat tiago">
+      <div class="label">Tiago</div>
+      <div class="value">{{ "{:,.0f}".format(total_tiago).replace(",", " ") }} XPF</div>
+    </div>
+    <div class="stat paul">
+      <div class="label">Paul</div>
+      <div class="value">{{ "{:,.0f}".format(total_paul).replace(",", " ") }} XPF</div>
+    </div>
+    <div class="stat">
+      <div class="label">Dépenses</div>
+      <div class="value">{{ depenses|length }}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Catégorie</th><th>Description</th><th>Payé par</th><th>Montant</th><th>Statut</th></tr>
+    </thead>
+    <tbody>
+      {% for d in depenses %}
+      <tr>
+        <td>{{ d.date.strftime('%d/%m/%Y') }}</td>
+        <td>{{ d.categorie|capitalize }}</td>
+        <td>
+          {{ d.description }}
+          {% if d.notes %}<br><span style="font-size:8pt;color:#888">{{ d.notes }}</span>{% endif %}
+        </td>
+        <td>{{ d.paye_par }}</td>
+        <td><strong>{{ "{:,.0f}".format(d.montant).replace(",", " ") }} XPF</strong></td>
+        <td><span class="badge-{% if d.statut == 'rembourse' %}rembourse{% else %}attente{% endif %}">{{ 'Remboursé' if d.statut == 'rembourse' else 'En attente' }}</span></td>
+      </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td colspan="4">TOTAL</td>
+        <td>{{ "{:,.0f}".format(total).replace(",", " ") }} XPF</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  {% if depenses %}
+  <!-- Tickets photos -->
+  {% set avec_ticket = depenses|selectattr('ticket_photo')|list %}
+  {% if avec_ticket %}
+  <h3 style="font-size:11pt;margin-bottom:12px;color:#0D7A6F">Justificatifs / Tickets</h3>
+  <div style="display:flex;flex-wrap:wrap;gap:12px">
+    {% for d in avec_ticket %}
+    <div style="border:1px solid #e0e0e0;border-radius:8px;padding:8px;text-align:center;width:120px">
+      <img src="{{ d.ticket_photo }}" style="max-width:100px;max-height:100px;border-radius:4px">
+      <div style="font-size:7.5pt;color:#888;margin-top:4px">{{ d.date.strftime('%d/%m') }} — {{ d.categorie }}</div>
+      <div style="font-size:8pt;font-weight:700">{{ "{:,.0f}".format(d.montant).replace(",", " ") }} XPF</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <div class="footer">
+    Tikibooth Bora Bora · Document généré le {{ depenses[0].created_at.strftime('%d/%m/%Y') if depenses else '' }} · Tarifs en Franc CFP (XPF)
+  </div>
+</div>
+</body>
+</html>
