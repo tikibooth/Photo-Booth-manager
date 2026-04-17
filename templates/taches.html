@@ -201,7 +201,7 @@ function voirTache(id) {
     } else {
       t.commentaires.forEach(c => {
         cmDiv.innerHTML += `
-          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+          <div style="background:var(--teal-pale);border-radius:8px;padding:10px 14px">
             <div style="font-size:0.75rem;color:var(--gold);margin-bottom:4px;font-weight:600">${c.auteur} <span style="color:var(--text-muted);font-weight:400">— ${c.date}</span></div>
             <div style="font-size:0.875rem">${c.contenu}</div>
           </div>`;
@@ -233,7 +233,7 @@ function ajouterCommentaire() {
     const cmDiv = document.getElementById('dt-commentaires');
     if (cmDiv.querySelector('div[style*="italic"]')) cmDiv.innerHTML = '';
     cmDiv.innerHTML += `
-      <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+      <div style="background:var(--teal-pale);border-radius:8px;padding:10px 14px">
         <div style="font-size:0.75rem;color:var(--gold);margin-bottom:4px;font-weight:600">${c.auteur} <span style="color:var(--text-muted);font-weight:400">— ${c.date}</span></div>
         <div style="font-size:0.875rem">${c.contenu}</div>
       </div>`;

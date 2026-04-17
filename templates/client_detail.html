@@ -3,7 +3,7 @@
 {% block page_title %}{{ client.nom }}{% endblock %}
 {% block topbar_actions %}
 <a href="/clients/{{ client.id }}/modifier" class="btn btn-outline"><i class="fas fa-pen"></i> Modifier</a>
-<a href="/devis/nouveau?client={{ client.id }}" class="btn btn-gold"><i class="fas fa-plus"></i> Nouveau devis</a>
+<a href="/devis/nouveau?client={{ client.id }}" class="btn btn-teal"><i class="fas fa-plus"></i> Nouveau devis</a>
 {% endblock %}
 {% block content %}
 <div style="display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start" class="detail-grid">

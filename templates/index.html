@@ -2,7 +2,7 @@
 {% block title %}Tableau de bord — PhotoBooth Manager{% endblock %}
 {% block page_title %}Tableau de bord{% endblock %}
 {% block topbar_actions %}
-<a href="/devis/nouveau" class="btn btn-gold"><i class="fas fa-plus"></i> Nouveau devis</a>
+<a href="/devis/nouveau" class="btn btn-teal"><i class="fas fa-plus"></i> Nouveau devis</a>
 {% endblock %}
 {% block extra_head %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -133,8 +133,8 @@ fetch('/api/stats').then(r=>r.json()).then(data => {
       datasets: [{
         label: 'CA (XPF)',
         data: vals,
-        backgroundColor: 'rgba(201,168,76,0.3)',
-        borderColor: '#C9A84C',
+        backgroundColor: 'rgba(13,122,111,0.15)',
+        borderColor: '#0D7A6F',
         borderWidth: 2,
         borderRadius: 6,
       }]
@@ -143,8 +143,8 @@ fetch('/api/stats').then(r=>r.json()).then(data => {
       responsive: true,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: '#8A8A9A' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: { ticks: { color: '#8A8A9A', callback: v => (v/1000)+'k' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        x: { ticks: { color: '#6B8A94' }, grid: { color: 'rgba(13,122,111,0.06)' } },
+        y: { ticks: { color: '#6B8A94', callback: v => (v/1000)+'k' }, grid: { color: 'rgba(13,122,111,0.06)' } }
       }
     }
   });
