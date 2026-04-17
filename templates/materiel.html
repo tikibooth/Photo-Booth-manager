@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Matériel — PhotoBooth Manager{% endblock %}
+{% block page_title %}Matériel & Stock{% endblock %}
+{% block topbar_actions %}
+<button class="btn btn-gold" onclick="ouvrirModalNv()"><i class="fas fa-plus"></i> Ajouter</button>
+{% endblock %}
+{% block content %}
+
+{% if alertes %}
+<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px">
+  <div style="font-weight:600;color:var(--red);margin-bottom:10px"><i class="fas fa-exclamation-triangle"></i> {{ alertes|length }} article(s) en stock bas !</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    {% for m in alertes %}
+    <span style="background:rgba(239,68,68,0.15);color:var(--red);padding:4px 12px;border-radius:20px;font-size:0.82rem">
+      {{ m.nom }} — {{ m.quantite }} {{ m.unite }} (seuil: {{ m.seuil_alerte }})
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Filtres catégorie -->
+<div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap">
+  {% for cat, label, icon in [('tous','Tout','boxes'),('consommable','Consommables','print'),('equipement','Équipement','camera'),('accessoire','Accessoires','star')] %}
+  <button onclick="filtrerCat('{{ cat }}')" id="btn-{{ cat }}" class="btn {% if loop.first %}btn-gold{% else %}btn-outline{% endif %} btn-sm">
+    <i class="fas fa-{{ icon }}"></i> {{ label }}
+  </button>
+  {% endfor %}
+</div>
+
+<!-- Grille matériel -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="materielGrid">
+  {% for m in materiels %}
+  <div class="card materiel-card" data-cat="{{ m.categorie }}" style="border-left:3px solid {% if m.quantite <= m.seuil_alerte %}var(--red){% else %}var(--green){% endif %}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div>
+        <div style="font-weight:600;font-size:1rem">{{ m.nom }}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:2px">{{ m.categorie }}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-icon btn-sm" onclick="ouvrirModalEdit({{ m.id }})" title="Modifier"><i class="fas fa-pen"></i></button>
+        <button class="btn btn-danger btn-icon btn-sm" onclick="supprimerMateriel({{ m.id }},'{{ m.nom }}')" title="Supprimer"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+
+    <!-- Stock -->
+    <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:0.8rem;color:var(--text-muted)">Stock actuel</span>
+        <span style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:{% if m.quantite <= m.seuil_alerte %}var(--red){% else %}var(--green){% endif %}">
+          {{ m.quantite|int if m.quantite == m.quantite|int else m.quantite }} <span style="font-size:0.85rem;font-family:'DM Sans',sans-serif">{{ m.unite }}</span>
+        </span>
+      </div>
+      {% if m.seuil_alerte > 0 %}
+      <div style="background:var(--border);border-radius:4px;height:4px;overflow:hidden">
+        <div style="background:{% if m.quantite <= m.seuil_alerte %}var(--red){% elif m.quantite <= m.seuil_alerte * 2 %}var(--amber){% else %}var(--green){% endif %};height:100%;width:{% if m.seuil_alerte > 0 %}{{ [100, (m.quantite / (m.seuil_alerte * 3) * 100)|int]|min }}%{% else %}100%{% endif %}"></div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">Seuil d'alerte : {{ m.seuil_alerte }} {{ m.unite }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Mise à jour rapide stock -->
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="number" class="form-control" value="{{ m.quantite }}" min="0" step="0.5" id="stock-{{ m.id }}" style="flex:1">
+      <button class="btn btn-gold btn-sm" onclick="majStock({{ m.id }})"><i class="fas fa-save"></i> MAJ</button>
+    </div>
+
+    {% if m.fournisseur %}
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px"><i class="fas fa-store" style="width:14px"></i> {{ m.fournisseur }}</div>
+    {% endif %}
+    {% if m.prix_unitaire > 0 %}
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px"><i class="fas fa-tag" style="width:14px"></i> {{ "{:,.0f}".format(m.prix_unitaire).replace(",", " ") }} XPF / {{ m.unite }}</div>
+    {% endif %}
+    {% if m.notes %}
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;font-style:italic">{{ m.notes }}</div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="empty" style="grid-column:1/-1"><i class="fas fa-boxes"></i><p>Aucun matériel enregistré</p>
+    <button class="btn btn-gold" style="margin-top:16px" onclick="ouvrirModalNv()">Ajouter du matériel</button>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal Nouveau / Édition -->
+<div class="modal-overlay" id="modalMateriel">
+  <div class="modal" style="max-width:520px">
+    <h2 id="modal-mat-title"><i class="fas fa-boxes" style="color:var(--gold)"></i> Nouveau matériel</h2>
+    <input type="hidden" id="mat-id" value="">
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Nom *</label>
+        <input type="text" class="form-control" id="mat-nom" placeholder="Ex: Papier photo 10x15">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Catégorie</label>
+        <select class="form-control" id="mat-cat">
+          <option value="consommable">🖨️ Consommable</option>
+          <option value="equipement">📷 Équipement</option>
+          <option value="accessoire">⭐ Accessoire</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Unité</label>
+        <input type="text" class="form-control" id="mat-unite" placeholder="rouleaux, feuilles, unités...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantité en stock</label>
+        <input type="number" class="form-control" id="mat-qte" min="0" step="0.5" value="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Seuil d'alerte</label>
+        <input type="number" class="form-control" id="mat-seuil" min="0" step="0.5" value="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prix unitaire (XPF)</label>
+        <input type="number" class="form-control" id="mat-prix" min="0" value="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fournisseur</label>
+        <input type="text" class="form-control" id="mat-fourn" placeholder="Nom du fournisseur">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" id="mat-notes" rows="2" placeholder="Référence, lien commande..."></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="document.getElementById('modalMateriel').classList.remove('open')">Annuler</button>
+      <button class="btn btn-gold" onclick="sauvegarderMateriel()"><i class="fas fa-save"></i> Sauvegarder</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function filtrerCat(cat) {
+  document.querySelectorAll('.materiel-card').forEach(c => {
+    c.parentElement.style.display = cat === 'tous' || c.dataset.cat === cat ? '' : 'none';
+  });
+  document.querySelectorAll('[id^="btn-"]').forEach(b => b.className = b.className.replace('btn-gold','btn-outline'));
+  document.getElementById('btn-'+cat).className = document.getElementById('btn-'+cat).className.replace('btn-outline','btn-gold');
+}
+
+function ouvrirModalNv() {
+  document.getElementById('modal-mat-title').innerHTML = '<i class="fas fa-plus-circle" style="color:var(--gold)"></i> Nouveau matériel';
+  document.getElementById('mat-id').value = '';
+  ['nom','unite','fourn','notes'].forEach(f => document.getElementById('mat-'+f).value = '');
+  ['qte','seuil','prix'].forEach(f => document.getElementById('mat-'+f).value = 0);
+  document.getElementById('mat-cat').value = 'consommable';
+  document.getElementById('modalMateriel').classList.add('open');
+}
+
+function ouvrirModalEdit(id) {
+  fetch(`/api/materiel/${id}`).then(r=>r.json()).then(m => {
+    document.getElementById('modal-mat-title').innerHTML = '<i class="fas fa-pen" style="color:var(--gold)"></i> Modifier le matériel';
+    document.getElementById('mat-id').value = m.id;
+    document.getElementById('mat-nom').value = m.nom;
+    document.getElementById('mat-cat').value = m.categorie;
+    document.getElementById('mat-qte').value = m.quantite;
+    document.getElementById('mat-unite').value = m.unite;
+    document.getElementById('mat-seuil').value = m.seuil_alerte;
+    document.getElementById('mat-prix').value = m.prix_unitaire;
+    document.getElementById('mat-fourn').value = m.fournisseur;
+    document.getElementById('mat-notes').value = m.notes;
+    document.getElementById('modalMateriel').classList.add('open');
+  });
+}
+
+function sauvegarderMateriel() {
+  const nom = document.getElementById('mat-nom').value;
+  if (!nom) { showToast('Nom requis', 'error'); return; }
+  const id = document.getElementById('mat-id').value;
+  const data = {
+    nom, categorie: document.getElementById('mat-cat').value,
+    quantite: document.getElementById('mat-qte').value,
+    unite: document.getElementById('mat-unite').value,
+    seuil_alerte: document.getElementById('mat-seuil').value,
+    prix_unitaire: document.getElementById('mat-prix').value,
+    fournisseur: document.getElementById('mat-fourn').value,
+    notes: document.getElementById('mat-notes').value,
+  };
+  const url = id ? `/materiel/${id}/modifier` : '/materiel/nouveau';
+  fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
+    .then(()=>{ showToast('Matériel sauvegardé !'); setTimeout(()=>location.reload(), 800); });
+}
+
+function majStock(id) {
+  const qte = document.getElementById('stock-'+id).value;
+  fetch(`/materiel/${id}/stock`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({quantite: qte})
+  }).then(r=>r.json()).then(res => {
+    showToast('Stock mis à jour !');
+    if (res.alerte) showToast('⚠️ Stock bas !', 'error');
+    setTimeout(()=>location.reload(), 800);
+  });
+}
+
+function supprimerMateriel(id, nom) {
+  if (!confirm(`Supprimer "${nom}" ?`)) return;
+  fetch(`/materiel/${id}/supprimer`, {method:'DELETE'})
+    .then(()=>{ showToast('Supprimé'); location.reload(); });
+}
+</script>
+{% endblock %}

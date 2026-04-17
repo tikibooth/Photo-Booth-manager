@@ -340,6 +340,13 @@ select.form-control { cursor: pointer; }
     <a href="/api/ical" class="nav-link">
       <i class="fas fa-download"></i> Export iCal
     </a>
+    <div class="nav-section">Gestion</div>
+    <a href="/taches" class="nav-link {% if 'tache' in request.endpoint %}active{% endif %}">
+      <i class="fas fa-tasks"></i> Tâches
+    </a>
+    <a href="/materiel" class="nav-link {% if 'materiel' in request.endpoint %}active{% endif %}">
+      <i class="fas fa-boxes"></i> Matériel
+    </a>
   </nav>
   <div class="sidebar-footer">PhotoBooth Manager v1.0<br>Tarifs en XPF</div>
 </aside>

@@ -66,6 +66,40 @@ class Devis(db.Model):
     def reste_a_payer(self):
         return self.total - (self.acompte or 0)
 
+
+class Tache(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    titre = db.Column(db.String(300), nullable=False)
+    description = db.Column(db.Text)
+    assigne_a = db.Column(db.String(100))
+    priorite = db.Column(db.String(50), default='normale')  # basse, normale, haute, urgente
+    statut = db.Column(db.String(50), default='en_cours')  # en_cours, valide, decline
+    deadline = db.Column(db.Date)
+    devis_id = db.Column(db.Integer, db.ForeignKey('devis.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    commentaires = db.relationship('Commentaire', backref='tache', lazy=True, cascade='all, delete-orphan')
+
+class Commentaire(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tache_id = db.Column(db.Integer, db.ForeignKey('tache.id'), nullable=False)
+    auteur = db.Column(db.String(100))
+    contenu = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Materiel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nom = db.Column(db.String(200), nullable=False)
+    categorie = db.Column(db.String(100))  # consommable, equipement, accessoire
+    quantite = db.Column(db.Float, default=0)
+    unite = db.Column(db.String(50))  # rouleaux, feuilles, unités, m...
+    seuil_alerte = db.Column(db.Float, default=0)
+    prix_unitaire = db.Column(db.Float, default=0)
+    fournisseur = db.Column(db.String(200))
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 # ─── ROUTES PRINCIPALES ───────────────────────────────────────────────────────
 
 @app.route('/')
@@ -86,6 +120,7 @@ def index():
         'ca_paye': ca_paye,
     }
 
+    taches_en_cours = Tache.query.filter_by(statut='en_cours').count()
     prochains = Devis.query.filter(
         Devis.date_evenement >= today,
         Devis.statut.in_(['devis', 'accepte', 'facture'])
@@ -93,7 +128,7 @@ def index():
 
     recents = Devis.query.order_by(Devis.created_at.desc()).limit(5).all()
 
-    return render_template('index.html', stats=stats, prochains=prochains, recents=recents)
+    return render_template('index.html', stats=stats, prochains=prochains, recents=recents, taches_en_cours=taches_en_cours)
 
 # ─── CLIENTS ──────────────────────────────────────────────────────────────────
 
@@ -333,6 +368,152 @@ def api_stats():
             key = f"{d.date_evenement.year}-{d.date_evenement.month:02d}"
             par_mois[key] = par_mois.get(key, 0) + d.total
     return jsonify({'par_mois': par_mois})
+
+
+# ── TÂCHES ──────────────────────────────────────────────────────────────────
+
+@app.route('/taches')
+def liste_taches():
+    statut = request.args.get('statut', 'tous')
+    q = Tache.query
+    if statut != 'tous':
+        q = q.filter_by(statut=statut)
+    taches = q.order_by(Tache.created_at.desc()).all()
+    devis_list = Devis.query.order_by(Devis.created_at.desc()).all()
+    alertes = Materiel.query.filter(Materiel.quantite <= Materiel.seuil_alerte).count()
+    return render_template('taches.html', taches=taches, statut_filtre=statut, devis_list=devis_list, alertes=alertes, today=date.today())
+
+@app.route('/taches/nouvelle', methods=['POST'])
+def nouvelle_tache():
+    d = request.get_json()
+    deadline = datetime.strptime(d['deadline'], '%Y-%m-%d').date() if d.get('deadline') else None
+    devis_id = int(d['devis_id']) if d.get('devis_id') else None
+    t = Tache(
+        titre=d['titre'],
+        description=d.get('description', ''),
+        assigne_a=d.get('assigne_a', ''),
+        priorite=d.get('priorite', 'normale'),
+        statut='en_cours',
+        deadline=deadline,
+        devis_id=devis_id
+    )
+    db.session.add(t)
+    db.session.commit()
+    return jsonify({'id': t.id})
+
+@app.route('/taches/<int:id>/statut', methods=['POST'])
+def statut_tache(id):
+    tache = Tache.query.get_or_404(id)
+    d = request.get_json()
+    tache.statut = d['statut']
+    tache.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/taches/<int:id>/commentaire', methods=['POST'])
+def ajouter_commentaire(id):
+    tache = Tache.query.get_or_404(id)
+    d = request.get_json()
+    c = Commentaire(
+        tache_id=id,
+        auteur=d.get('auteur', ''),
+        contenu=d['contenu']
+    )
+    db.session.add(c)
+    tache.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'id': c.id, 'auteur': c.auteur, 'contenu': c.contenu, 'date': c.created_at.strftime('%d/%m/%Y %H:%M')})
+
+@app.route('/taches/<int:id>/supprimer', methods=['DELETE'])
+def supprimer_tache(id):
+    tache = Tache.query.get_or_404(id)
+    db.session.delete(tache)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/taches/<int:id>')
+def api_tache(id):
+    t = Tache.query.get_or_404(id)
+    return jsonify({
+        'id': t.id, 'titre': t.titre, 'description': t.description,
+        'assigne_a': t.assigne_a, 'priorite': t.priorite, 'statut': t.statut,
+        'deadline': t.deadline.isoformat() if t.deadline else '',
+        'devis_id': t.devis_id or '',
+        'devis_info': f"{t.devis.numero} — {t.devis.client.nom}" if t.devis_id else '',
+        'commentaires': [{'auteur': c.auteur, 'contenu': c.contenu, 'date': c.created_at.strftime('%d/%m/%Y %H:%M')} for c in t.commentaires]
+    })
+
+# ── MATÉRIEL ─────────────────────────────────────────────────────────────────
+
+@app.route('/materiel')
+def liste_materiel():
+    materiels = Materiel.query.order_by(Materiel.categorie, Materiel.nom).all()
+    alertes = [m for m in materiels if m.quantite <= m.seuil_alerte]
+    return render_template('materiel.html', materiels=materiels, alertes=alertes)
+
+@app.route('/materiel/nouveau', methods=['POST'])
+def nouveau_materiel():
+    d = request.get_json()
+    m = Materiel(
+        nom=d['nom'],
+        categorie=d.get('categorie', 'consommable'),
+        quantite=float(d.get('quantite', 0)),
+        unite=d.get('unite', 'unité'),
+        seuil_alerte=float(d.get('seuil_alerte', 0)),
+        prix_unitaire=float(d.get('prix_unitaire', 0)),
+        fournisseur=d.get('fournisseur', ''),
+        notes=d.get('notes', '')
+    )
+    db.session.add(m)
+    db.session.commit()
+    return jsonify({'id': m.id})
+
+@app.route('/materiel/<int:id>/modifier', methods=['POST'])
+def modifier_materiel(id):
+    m = Materiel.query.get_or_404(id)
+    d = request.get_json()
+    m.nom = d['nom']
+    m.categorie = d.get('categorie', 'consommable')
+    m.quantite = float(d.get('quantite', 0))
+    m.unite = d.get('unite', 'unité')
+    m.seuil_alerte = float(d.get('seuil_alerte', 0))
+    m.prix_unitaire = float(d.get('prix_unitaire', 0))
+    m.fournisseur = d.get('fournisseur', '')
+    m.notes = d.get('notes', '')
+    m.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/materiel/<int:id>/stock', methods=['POST'])
+def maj_stock(id):
+    m = Materiel.query.get_or_404(id)
+    d = request.get_json()
+    m.quantite = float(d['quantite'])
+    m.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'success': True, 'alerte': m.quantite <= m.seuil_alerte})
+
+@app.route('/materiel/<int:id>/supprimer', methods=['DELETE'])
+def supprimer_materiel(id):
+    m = Materiel.query.get_or_404(id)
+    db.session.delete(m)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/materiel/<int:id>')
+def api_materiel_detail(id):
+    m = Materiel.query.get_or_404(id)
+    return jsonify({
+        'id': m.id, 'nom': m.nom, 'categorie': m.categorie,
+        'quantite': m.quantite, 'unite': m.unite,
+        'seuil_alerte': m.seuil_alerte, 'prix_unitaire': m.prix_unitaire,
+        'fournisseur': m.fournisseur, 'notes': m.notes
+    })
+
+@app.route('/api/alertes')
+def api_alertes():
+    alertes = Materiel.query.filter(Materiel.quantite <= Materiel.seuil_alerte).all()
+    return jsonify({'count': len(alertes), 'items': [{'nom': m.nom, 'quantite': m.quantite, 'unite': m.unite, 'seuil': m.seuil_alerte} for m in alertes]})
 
 if __name__ == '__main__':
     with app.app_context():

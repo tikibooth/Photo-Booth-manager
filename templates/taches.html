@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}Tâches — PhotoBooth Manager{% endblock %}
+{% block page_title %}Tâches{% endblock %}
+{% block topbar_actions %}
+<button class="btn btn-gold" onclick="document.getElementById('modalNvTache').classList.add('open')">
+  <i class="fas fa-plus"></i> Nouvelle tâche
+</button>
+{% endblock %}
+{% block content %}
+
+{% if alertes > 0 %}
+<div class="alert alert-danger" style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <i class="fas fa-exclamation-triangle"></i>
+  <span><strong>{{ alertes }} article(s)</strong> en stock bas — <a href="/materiel" style="color:var(--red)">Voir le matériel</a></span>
+</div>
+{% endif %}
+
+<!-- Filtres -->
+<div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap">
+  {% for s, label, icon in [('tous','Toutes','list'),('en_cours','En cours','spinner'),('valide','Validées','check-circle'),('decline','Déclinées','times-circle')] %}
+  <a href="/taches?statut={{ s }}" class="btn {% if statut_filtre == s %}btn-gold{% else %}btn-outline{% endif %} btn-sm">
+    <i class="fas fa-{{ icon }}"></i> {{ label }}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Liste des tâches -->
+<div style="display:flex;flex-direction:column;gap:12px">
+  {% for t in taches %}
+  <div class="card" style="cursor:pointer;transition:all 0.2s;border-left:3px solid {% if t.priorite == 'urgente' %}var(--red){% elif t.priorite == 'haute' %}var(--amber){% elif t.priorite == 'normale' %}var(--blue){% else %}var(--border){% endif %}" onclick="voirTache({{ t.id }})">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+          <span class="badge badge-{% if t.statut == 'en_cours' %}accepte{% elif t.statut == 'valide' %}paye{% else %}annule{% endif %}">
+            {% if t.statut == 'en_cours' %}⏳ En cours{% elif t.statut == 'valide' %}✅ Validé{% else %}❌ Décliné{% endif %}
+          </span>
+          <span style="font-size:0.72rem;padding:2px 8px;border-radius:20px;background:{% if t.priorite == 'urgente' %}rgba(239,68,68,0.15){% elif t.priorite == 'haute' %}rgba(245,158,11,0.15){% else %}rgba(59,130,246,0.15){% endif %};color:{% if t.priorite == 'urgente' %}var(--red){% elif t.priorite == 'haute' %}var(--amber){% else %}var(--blue){% endif %}">
+            {{ t.priorite|capitalize }}
+          </span>
+          {% if t.assigne_a %}
+          <span style="font-size:0.78rem;color:var(--gold)"><i class="fas fa-user" style="font-size:0.7rem"></i> {{ t.assigne_a }}</span>
+          {% endif %}
+        </div>
+        <div style="font-weight:600;font-size:1rem;margin-bottom:4px">{{ t.titre }}</div>
+        {% if t.description %}
+        <div style="font-size:0.85rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:600px">{{ t.description }}</div>
+        {% endif %}
+        {% if t.devis_id %}
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px"><i class="fas fa-file-invoice" style="color:var(--gold)"></i> Lié à : {{ t.devis.numero }} — {{ t.devis.client.nom }}</div>
+        {% endif %}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        {% if t.deadline %}
+        <div style="font-size:0.78rem;color:{% if t.deadline < today %}var(--red){% else %}var(--text-muted){% endif %}">
+          <i class="fas fa-calendar"></i> {{ t.deadline.strftime('%d/%m/%Y') }}
+          {% if t.deadline < today and t.statut == 'en_cours' %}<span style="color:var(--red)"> — En retard</span>{% endif %}
+        </div>
+        {% endif %}
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px">
+          <i class="fas fa-comment"></i> {{ t.commentaires|length }} commentaire(s)
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">{{ t.created_at.strftime('%d/%m/%Y') }}</div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty"><i class="fas fa-tasks"></i><p>Aucune tâche trouvée</p></div>
+  {% endfor %}
+</div>
+
+<!-- Modal Nouvelle Tâche -->
+<div class="modal-overlay" id="modalNvTache">
+  <div class="modal" style="max-width:560px">
+    <h2><i class="fas fa-plus-circle" style="color:var(--gold)"></i> Nouvelle tâche</h2>
+    <div class="form-group">
+      <label class="form-label">Titre *</label>
+      <input type="text" class="form-control" id="nt-titre" placeholder="Ex: Vérifier le papier photo">
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Assignée à</label>
+        <select class="form-control" id="nt-assigne">
+          <option value="">— Choisir —</option>
+          <option value="Tiago">👤 Tiago</option>
+          <option value="Paul">👤 Paul</option>
+          <option value="Les deux">👥 Les deux</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priorité</label>
+        <select class="form-control" id="nt-priorite">
+          <option value="basse">🟢 Basse</option>
+          <option value="normale" selected>🔵 Normale</option>
+          <option value="haute">🟡 Haute</option>
+          <option value="urgente">🔴 Urgente</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Deadline</label>
+        <input type="date" class="form-control" id="nt-deadline">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lier à un devis (optionnel)</label>
+        <select class="form-control" id="nt-devis">
+          <option value="">— Aucun —</option>
+          {% for d in devis_list %}
+          <option value="{{ d.id }}">{{ d.numero }} — {{ d.client.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-control" id="nt-desc" rows="3" placeholder="Détails, instructions..."></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="document.getElementById('modalNvTache').classList.remove('open')">Annuler</button>
+      <button class="btn btn-gold" onclick="creerTache()"><i class="fas fa-save"></i> Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Détail Tâche -->
+<div class="modal-overlay" id="modalDetailTache">
+  <div class="modal" style="max-width:600px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <h2 id="dt-titre" style="flex:1;margin-right:16px"></h2>
+      <button onclick="document.getElementById('modalDetailTache').classList.remove('open')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem">✕</button>
+    </div>
+    <div id="dt-meta" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div id="dt-desc" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px;line-height:1.6"></div>
+    <div id="dt-devis" style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px"></div>
+
+    <!-- Changer statut -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="changerStatutTache('en_cours')"><i class="fas fa-spinner" style="color:var(--blue)"></i> En cours</button>
+      <button class="btn btn-outline btn-sm" onclick="changerStatutTache('valide')"><i class="fas fa-check-circle" style="color:var(--green)"></i> Valider</button>
+      <button class="btn btn-outline btn-sm" onclick="changerStatutTache('decline')"><i class="fas fa-times-circle" style="color:var(--red)"></i> Décliner</button>
+      <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="supprimerTacheModal()"><i class="fas fa-trash"></i></button>
+    </div>
+
+    <!-- Commentaires -->
+    <div style="border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">💬 Discussion</div>
+      <div id="dt-commentaires" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;max-height:200px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px">
+        <select class="form-control" id="cm-auteur" style="width:120px">
+          <option value="Tiago">Tiago</option>
+          <option value="Paul">Paul</option>
+        </select>
+        <input type="text" class="form-control" id="cm-contenu" placeholder="Écrire un commentaire..." style="flex:1" onkeypress="if(event.key==='Enter')ajouterCommentaire()">
+        <button class="btn btn-gold btn-sm" onclick="ajouterCommentaire()"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const today = new Date();
+let currentTacheId = null;
+
+function creerTache() {
+  const titre = document.getElementById('nt-titre').value;
+  if (!titre) { showToast('Titre requis', 'error'); return; }
+  fetch('/taches/nouvelle', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      titre,
+      assigne_a: document.getElementById('nt-assigne').value,
+      priorite: document.getElementById('nt-priorite').value,
+      deadline: document.getElementById('nt-deadline').value,
+      devis_id: document.getElementById('nt-devis').value,
+      description: document.getElementById('nt-desc').value,
+    })
+  }).then(r=>r.json()).then(()=>{ showToast('Tâche créée !'); setTimeout(()=>location.reload(), 800); });
+}
+
+function voirTache(id) {
+  currentTacheId = id;
+  fetch(`/api/taches/${id}`).then(r=>r.json()).then(t => {
+    document.getElementById('dt-titre').textContent = t.titre;
+    document.getElementById('dt-desc').textContent = t.description || '';
+    document.getElementById('dt-devis').innerHTML = t.devis_info ? `<i class="fas fa-file-invoice" style="color:var(--gold)"></i> Lié à : ${t.devis_info}` : '';
+
+    const prioriteColors = {urgente:'var(--red)',haute:'var(--amber)',normale:'var(--blue)',basse:'var(--gray)'};
+    document.getElementById('dt-meta').innerHTML = `
+      <span class="badge badge-${t.statut === 'en_cours' ? 'accepte' : t.statut === 'valide' ? 'paye' : 'annule'}">${t.statut === 'en_cours' ? '⏳ En cours' : t.statut === 'valide' ? '✅ Validé' : '❌ Décliné'}</span>
+      <span style="font-size:0.75rem;color:${prioriteColors[t.priorite]}">${t.priorite}</span>
+      ${t.assigne_a ? `<span style="font-size:0.78rem;color:var(--gold)">👤 ${t.assigne_a}</span>` : ''}
+      ${t.deadline ? `<span style="font-size:0.78rem;color:var(--text-muted)">📅 ${t.deadline}</span>` : ''}
+    `;
+
+    const cmDiv = document.getElementById('dt-commentaires');
+    cmDiv.innerHTML = '';
+    if (t.commentaires.length === 0) {
+      cmDiv.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;font-style:italic">Aucun commentaire</div>';
+    } else {
+      t.commentaires.forEach(c => {
+        cmDiv.innerHTML += `
+          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+            <div style="font-size:0.75rem;color:var(--gold);margin-bottom:4px;font-weight:600">${c.auteur} <span style="color:var(--text-muted);font-weight:400">— ${c.date}</span></div>
+            <div style="font-size:0.875rem">${c.contenu}</div>
+          </div>`;
+      });
+    }
+    cmDiv.scrollTop = cmDiv.scrollHeight;
+    document.getElementById('modalDetailTache').classList.add('open');
+  });
+}
+
+function changerStatutTache(statut) {
+  fetch(`/taches/${currentTacheId}/statut`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({statut})
+  }).then(()=>{ showToast('Statut mis à jour'); setTimeout(()=>location.reload(), 600); });
+}
+
+function ajouterCommentaire() {
+  const contenu = document.getElementById('cm-contenu').value;
+  if (!contenu) return;
+  const auteur = document.getElementById('cm-auteur').value;
+  fetch(`/taches/${currentTacheId}/commentaire`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({auteur, contenu})
+  }).then(r=>r.json()).then(c => {
+    document.getElementById('cm-contenu').value = '';
+    const cmDiv = document.getElementById('dt-commentaires');
+    if (cmDiv.querySelector('div[style*="italic"]')) cmDiv.innerHTML = '';
+    cmDiv.innerHTML += `
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+        <div style="font-size:0.75rem;color:var(--gold);margin-bottom:4px;font-weight:600">${c.auteur} <span style="color:var(--text-muted);font-weight:400">— ${c.date}</span></div>
+        <div style="font-size:0.875rem">${c.contenu}</div>
+      </div>`;
+    cmDiv.scrollTop = cmDiv.scrollHeight;
+  });
+}
+
+function supprimerTacheModal() {
+  if (!confirm('Supprimer cette tâche ?')) return;
+  fetch(`/taches/${currentTacheId}/supprimer`, {method:'DELETE'})
+    .then(()=>{ document.getElementById('modalDetailTache').classList.remove('open'); showToast('Tâche supprimée'); setTimeout(()=>location.reload(), 800); });
+}
+</script>
+{% endblock %}

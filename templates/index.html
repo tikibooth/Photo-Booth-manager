@@ -25,6 +25,16 @@
     <div class="stat-value">{{ stats.factures_impayees }}</div>
     <div class="stat-sub">en attente de règlement</div>
   </div>
+  <div class="stat-card" style="--accent: var(--blue)" onclick="window.location='/taches'" class="stat-card" style="cursor:pointer">
+    <div class="stat-label">Tâches en cours</div>
+    <div class="stat-value" id="stat-taches">{{ taches_en_cours }}</div>
+    <div class="stat-sub">à traiter</div>
+  </div>
+  <div class="stat-card" style="--accent: var(--red)" onclick="window.location='/materiel'" style="cursor:pointer">
+    <div class="stat-label">Alertes stock</div>
+    <div class="stat-value" id="stat-alertes" style="color:var(--red)">—</div>
+    <div class="stat-sub">articles en rupture</div>
+  </div>
   <div class="stat-card" style="--accent: var(--green)">
     <div class="stat-label">CA Encaissé</div>
     <div class="stat-value" style="font-size:1.5rem">{{ "{:,.0f}".format(stats.ca_paye).replace(",", " ") }}</div>
@@ -104,6 +114,11 @@
 {% endblock %}
 {% block scripts %}
 <script>
+fetch('/api/alertes').then(r=>r.json()).then(d => {
+  document.getElementById('stat-alertes').textContent = d.count;
+});
+fetch('/taches?statut=en_cours', {headers:{'X-Requested-With':'XMLHttpRequest'}});
+// Count taches via a simple approach
 fetch('/api/stats').then(r=>r.json()).then(data => {
   const mois = Object.keys(data.par_mois).sort().slice(-8);
   const vals = mois.map(m => data.par_mois[m] || 0);
